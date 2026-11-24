@@ -29,6 +29,7 @@ const BUTTONS: Record<ButtonId, { label: string; sub: string; key: string; color
 const KEY_TO_BUTTON = new Map<string, ButtonId>(BUTTON_IDS.map((id) => [BUTTONS[id].key.toLowerCase(), id]))
 const LOG_SIZE = 60
 const PANEL_KEY = 'pm-midi.panel'
+const SIDE_KEY = 'pm-midi.side'
 
 export function App() {
   useWakeLock()
@@ -41,6 +42,13 @@ export function App() {
   const [panel, setPanel] = useState<PanelColor>(
     () => (localStorage.getItem(PANEL_KEY) as PanelColor | null) ?? 'yellow-blue',
   )
+
+  const [sideOpen, setSideOpen] = useState(() => localStorage.getItem(SIDE_KEY) !== 'hidden')
+  const toggleSide = () =>
+    setSideOpen((open) => {
+      localStorage.setItem(SIDE_KEY, open ? 'hidden' : 'shown')
+      return !open
+    })
 
   const onMidi = useCallback(
     (msgs: CcMessage[]) => {
@@ -86,6 +94,15 @@ export function App() {
 
   return (
     <main className="app">
+      <button
+        type="button"
+        className="btn side-toggle"
+        onClick={toggleSide}
+        aria-expanded={sideOpen}
+        aria-controls="side-panels"
+      >
+        {sideOpen ? 'Hide panels' : 'Show panels'}
+      </button>
       <section className="unit" aria-label="Controller">
         <div className="bezel">
           <Screen model={screen} panel={panel} />
@@ -108,7 +125,7 @@ export function App() {
         </div>
       </section>
 
-      <aside className="side">
+      <aside className="side" id="side-panels" hidden={!sideOpen}>
         <section className="settings" aria-label="MIDI settings">
           <h1>Pocket Master MIDI</h1>
           <div className="row">

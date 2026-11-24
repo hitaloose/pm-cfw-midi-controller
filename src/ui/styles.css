@@ -109,6 +109,8 @@ kbd {
 .side {
   width: 320px;
   align-self: stretch;
+  /* cap at the viewport so the log scrolls inside instead of growing the page */
+  max-height: calc(100dvh - 32px);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -119,7 +121,16 @@ kbd {
   border-radius: 14px;
   padding: 18px 20px;
 }
-.settings { display: flex; flex-direction: column; gap: 12px; }
+.side[hidden] { display: none; }
+.side-toggle {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.settings { flex: none; display: flex; flex-direction: column; gap: 12px; }
 h1 { font-size: 18px; margin: 0; }
 h2 { font-size: 14px; margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; }
 .status { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; }
@@ -212,7 +223,10 @@ select {
 
 /* Narrow / portrait: stack and let the page scroll. */
 @media (max-width: 900px) {
-  .side { width: min(100%, 600px); align-self: center; }
+  .side { width: min(100%, 600px); align-self: center; max-height: none; }
+  /* below the controller, right above the panels */
+  .side-toggle { position: static; order: 1; width: min(100%, 600px); }
+  .side { order: 2; }
   .log ol { flex: none; max-height: 320px; }
   .oled { height: clamp(110px, 30vw, 256px); }
 }
