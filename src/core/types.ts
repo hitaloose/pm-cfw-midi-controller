@@ -1,23 +1,26 @@
 import type { CcMessage } from './midiMap'
 
 export type ButtonId =
-  | 'stomp1'
-  | 'stomp2'
-  | 'scene1'
-  | 'scene2'
   | 'preset1'
   | 'preset2'
   | 'preset3'
+  | 'preset4'
+  | 'scene1'
+  | 'scene2'
+  | 'freeze'
   | 'tap'
 
+export type PresetButtonId = 'preset1' | 'preset2' | 'preset3' | 'preset4'
+
+/** Top row, then bottom row. */
 export const BUTTON_IDS: readonly ButtonId[] = [
-  'stomp1',
-  'stomp2',
-  'scene1',
-  'scene2',
   'preset1',
   'preset2',
   'preset3',
+  'preset4',
+  'scene1',
+  'scene2',
+  'freeze',
   'tap',
 ]
 
@@ -35,13 +38,10 @@ export interface ButtonState {
 
 export interface ControllerState {
   nowMs: number
-  /** Bank shown on screen, 0-based. May differ from the loaded preset's bank (pending). */
-  displayedBank: number
-  /** Loaded preset index, 0-based (P01 = 0). */
+  /** Loaded preset index, 0-based (P01 = 0). Its bank is loadedPreset / SLOTS_PER_BANK. */
   loadedPreset: number
   /** 0 = SC1, 1 = SC2, null = no scene. */
   activeScene: 0 | 1 | null
-  stomps: readonly [boolean, boolean]
   freeze: boolean
   bpm: number
   /** Time of the beat the tap LED is aligned to. */

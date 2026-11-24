@@ -1,58 +1,40 @@
 import { describe, expect, it } from 'vitest'
 import { driver } from './testDriver'
-import { getLeds, getScreen } from './view'
-
-describe('screen', () => {
-  it('shows BPM, FRZ, bank and preset', () => {
-    const d = driver()
-    expect(getScreen(d.state)).toEqual({
-      bpmText: '120 BPM',
-      frzActive: false,
-      bankText: 'B01',
-      bankPending: false,
-      presetText: 'P01',
-    })
-  })
-
-  it('bank is pending after a bank change until a preset is loaded', () => {
-    const d = driver()
-    d.hold('preset3')
-    expect(getScreen(d.state)).toMatchObject({ bankText: 'B02', bankPending: true, presetText: 'P01' })
-    d.tapButton('preset2')
-    expect(getScreen(d.state)).toMatchObject({ bankText: 'B02', bankPending: false, presetText: 'P05' })
-  })
-
-  it('going back to the loaded bank clears pending', () => {
-    const d = driver()
-    d.hold('preset3').hold('preset1')
-    expect(getScreen(d.state).bankPending).toBe(false)
-  })
-
-  it('FRZ is active while freezing', () => {
-    const d = driver()
-    d.press('tap').wait(500)
-    expect(getScreen(d.state).frzActive).toBe(true)
-  })
-})
+import { BANK_B_BLINK_MS } from './config'
+import { getLeds } from './view'
 
 describe('leds', () => {
-  it('stomp and scene LEDs follow their state', () => {
+  it('scene and freeze LEDs follow their state', () => {
     const d = driver()
-    d.tapButton('stomp2').tapButton('scene1')
-    expect(getLeds(d.state)).toMatchObject({
-      stomp1: false,
-      stomp2: true,
-      scene1: true,
-      scene2: false,
-    })
+    d.tapButton('scene1').tapButton('freeze')
+    expect(getLeds(d.state)).toMatchObject({ scene1: true, scene2: false, freeze: true })
+    d.tapButton('freeze')
+    expect(getLeds(d.state).freeze).toBe(false)
   })
 
-  it('lights the loaded slot only when its bank is displayed', () => {
+  it('bank A: the loaded preset LED is solid', () => {
     const d = driver()
     d.tapButton('preset2')
-    expect(getLeds(d.state)).toMatchObject({ preset1: false, preset2: true, preset3: false })
-    d.hold('preset3')
-    expect(getLeds(d.state)).toMatchObject({ preset1: false, preset2: false, preset3: false })
+    for (let t = 100; t < 3000; t += 37) {
+      d.at(t)
+      expect(getLeds(d.state)).toMatchObject({ preset1: false, preset2: true, preset3: false, preset4: false })
+    }
+  })
+
+  it('bank B: the loaded preset LED blinks (half on, half off)', () => {
+    const d = driver()
+    d.hold('preset3') // P07
+    const half = BANK_B_BLINK_MS / 2
+    const t0 = BANK_B_BLINK_MS * 10 // the blink runs on the absolute clock
+    d.at(t0)
+    expect(getLeds(d.state)).toMatchObject({ preset1: false, preset2: false, preset3: true, preset4: false })
+    d.at(t0 + half - 1)
+    expect(getLeds(d.state).preset3).toBe(true)
+    d.at(t0 + half)
+    expect(getLeds(d.state).preset3).toBe(false)
+    d.at(t0 + BANK_B_BLINK_MS)
+    expect(getLeds(d.state).preset3).toBe(true)
+    expect(getLeds(d.state)).toMatchObject({ preset1: false, preset2: false, preset4: false })
   })
 
   it('tap LED flashes for 60 ms at the start of each beat', () => {
@@ -85,12 +67,10 @@ describe('leds', () => {
     expect(getLeds(d.state).tap).toBe(true)
   })
 
-  it('tap LED is solid while freezing', () => {
+  it('tap LED keeps flashing while freezing', () => {
     const d = driver()
-    d.at(1000).press('tap').wait(500)
-    for (let t = 1500; t < 2500; t += 37) {
-      d.at(t)
-      expect(getLeds(d.state).tap).toBe(true)
-    }
+    d.at(1000).tapButton('freeze')
+    d.at(1100)
+    expect(getLeds(d.state).tap).toBe(false)
   })
 })

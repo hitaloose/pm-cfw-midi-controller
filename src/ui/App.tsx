@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { SCENE_CC, STOMP_CC, type CcMessage } from '../core/midiMap'
+import { FREEZE_CC, SCENE_CC, TAP_CC, type CcMessage } from '../core/midiMap'
 import { BUTTON_IDS, type ButtonId } from '../core/types'
-import { getLeds, getScreen } from '../core/view'
+import { getDisplay } from '../core/display'
+import { getLeds } from '../core/view'
 import { useBluetoothMidi, type BleStatus } from '../midi/useBluetoothMidi'
 import { useMidi } from '../midi/useMidi'
 import { Footswitch } from './Footswitch'
 import { MidiLog, type LogEntry } from './MidiLog'
-import { Screen, type PanelColor } from './Screen'
+import { SevenSegment } from './SevenSegment'
 import { useController } from './useController'
 import { useWakeLock } from './useWakeLock'
 
@@ -16,19 +17,18 @@ const AMBER = '#FFB547'
 
 // 2×4 layout from CLAUDE.md, in BUTTON_IDS order (top row, then bottom row).
 const BUTTONS: Record<ButtonId, { label: string; sub: string; key: string; color: string }> = {
-  stomp1: { label: 'Stomp 1', sub: `CC ${STOMP_CC[0]}`, key: '1', color: GREEN },
-  stomp2: { label: 'Stomp 2', sub: `CC ${STOMP_CC[1]}`, key: '2', color: GREEN },
-  scene1: { label: 'Scene 1', sub: `CC ${SCENE_CC[0]}`, key: '3', color: BLUE },
-  scene2: { label: 'Scene 2', sub: `CC ${SCENE_CC[1]}`, key: '4', color: BLUE },
-  preset1: { label: 'Preset 1', sub: 'hold: bank −', key: 'Q', color: AMBER },
-  preset2: { label: 'Preset 2', sub: '', key: 'W', color: AMBER },
-  preset3: { label: 'Preset 3', sub: 'hold: bank +', key: 'E', color: AMBER },
-  tap: { label: 'Tap', sub: 'hold: freeze', key: 'R', color: AMBER },
+  preset1: { label: 'P01 / P05', sub: 'hold: other bank', key: '1', color: AMBER },
+  preset2: { label: 'P02 / P06', sub: 'hold: other bank', key: '2', color: AMBER },
+  preset3: { label: 'P03 / P07', sub: 'hold: other bank', key: '3', color: AMBER },
+  preset4: { label: 'P04 / P08', sub: 'hold: other bank', key: '4', color: AMBER },
+  scene1: { label: 'Scene 1', sub: `CC ${SCENE_CC[0]}`, key: 'Q', color: BLUE },
+  scene2: { label: 'Scene 2', sub: `CC ${SCENE_CC[1]}`, key: 'W', color: BLUE },
+  freeze: { label: 'Freeze', sub: `CC ${FREEZE_CC}`, key: 'E', color: GREEN },
+  tap: { label: 'Tap', sub: `CC ${TAP_CC}`, key: 'R', color: AMBER },
 }
 
 const KEY_TO_BUTTON = new Map<string, ButtonId>(BUTTON_IDS.map((id) => [BUTTONS[id].key.toLowerCase(), id]))
 const LOG_SIZE = 60
-const PANEL_KEY = 'pm-midi.panel'
 const SIDE_KEY = 'pm-midi.side'
 
 export function App() {
@@ -39,9 +39,6 @@ export function App() {
   const seq = useRef(0)
   const channelRef = useRef(midi.channel)
   channelRef.current = midi.channel
-  const [panel, setPanel] = useState<PanelColor>(
-    () => (localStorage.getItem(PANEL_KEY) as PanelColor | null) ?? 'yellow-blue',
-  )
 
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem(SIDE_KEY) !== 'hidden')
   const toggleSide = () =>
@@ -66,7 +63,6 @@ export function App() {
 
   const { state, press, release } = useController(onMidi)
   const leds = getLeds(state)
-  const screen = getScreen(state)
 
   // Keyboard shortcuts: keydown = press, keyup = release, so holds work too.
   useEffect(() => {
@@ -104,9 +100,7 @@ export function App() {
         {sideOpen ? 'Hide panels' : 'Show panels'}
       </button>
       <section className="unit" aria-label="Controller">
-        <div className="bezel">
-          <Screen model={screen} panel={panel} />
-        </div>
+        <SevenSegment segments={getDisplay(state)} label={`${state.bpm} BPM`} />
         <div className="grid">
           {BUTTON_IDS.map((id) => (
             <Footswitch
@@ -162,21 +156,6 @@ export function App() {
                   {i + 1}
                 </option>
               ))}
-            </select>
-          </label>
-          <label>
-            Screen
-            <select
-              value={panel}
-              onChange={(e) => {
-                const p = e.target.value as PanelColor
-                setPanel(p)
-                localStorage.setItem(PANEL_KEY, p)
-              }}
-            >
-              <option value="yellow-blue">Yellow / blue (bicolor)</option>
-              <option value="white">White</option>
-              <option value="blue">Blue</option>
             </select>
           </label>
         </section>

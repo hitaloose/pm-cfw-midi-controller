@@ -1,25 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { BANK_COUNT } from './config'
 import { initialState, step } from './controller'
-import { FREEZE_CC, PRESET_INDEX_OFFSET, PRESET_LOAD_CC, SCENE_CC, SCENE_OFF, STOMP_CC, TAP_CC } from './midiMap'
+import { FREEZE_CC, MIDI_OFF, MIDI_ON, PRESET_INDEX_OFFSET, PRESET_LOAD_CC, SCENE_CC, SCENE_OFF, TAP_CC } from './midiMap'
 import { driver } from './testDriver'
 
 const load = (index: number) => ({ cc: PRESET_LOAD_CC, value: index + PRESET_INDEX_OFFSET })
 
 describe('initial state', () => {
-  it('starts on B01/P01 without sending anything', () => {
+  it('starts on P01 without sending anything', () => {
     const s = initialState()
-    expect(s.displayedBank).toBe(0)
     expect(s.loadedPreset).toBe(0)
     expect(s.activeScene).toBeNull()
-    expect(s.stomps).toEqual([false, false])
     expect(s.freeze).toBe(false)
     expect(s.bpm).toBe(120)
   })
 })
 
 describe('presets', () => {
-  it('loads bank*3+slot on release, not on press', () => {
+  it('loads on release, not on press', () => {
     const d = driver()
     d.press('preset2')
     expect(d.flush()).toEqual([])
@@ -28,96 +25,69 @@ describe('presets', () => {
     expect(d.state.loadedPreset).toBe(1)
   })
 
-  it('maps each slot of the displayed bank', () => {
+  it('a tap loads that button in bank A while bank A is loaded', () => {
     const d = driver()
-    d.hold('preset3').flush() // B02
-    d.tapButton('preset1').tapButton('preset2').tapButton('preset3')
-    expect(d.flush()).toEqual([load(3), load(4), load(5)])
+    d.tapButton('preset1').tapButton('preset2').tapButton('preset3').tapButton('preset4')
+    expect(d.flush()).toEqual([load(0), load(1), load(2), load(3)])
   })
 
-  it('slot 3 of B17 does nothing', () => {
+  it('a tap loads that button in bank B while bank B is loaded', () => {
     const d = driver()
-    d.hold('preset1').flush() // wrap to B17
-    expect(d.state.displayedBank).toBe(BANK_COUNT - 1)
-    d.tapButton('preset1').tapButton('preset2')
-    expect(d.flush()).toEqual([load(48), load(49)])
-    d.tapButton('preset3')
-    expect(d.flush()).toEqual([])
-    expect(d.state.loadedPreset).toBe(49)
+    d.hold('preset1').flush() // P05
+    d.tapButton('preset2').tapButton('preset4')
+    expect(d.flush()).toEqual([load(5), load(7)])
   })
 
-  it('loading a preset clears scene and stomps', () => {
+  it('loading a preset clears the scene', () => {
     const d = driver()
-    d.tapButton('scene1').tapButton('stomp1').tapButton('stomp2')
+    d.tapButton('scene1')
     expect(d.state.activeScene).toBe(0)
-    expect(d.state.stomps).toEqual([true, true])
     d.tapButton('preset3')
     expect(d.state.activeScene).toBeNull()
-    expect(d.state.stomps).toEqual([false, false])
   })
 })
 
-describe('banks', () => {
-  it('holding P3 goes to the next bank without sending MIDI', () => {
+describe('banks (hold a preset)', () => {
+  it('holding P1 loads P05 at 450 ms, and nothing on release', () => {
     const d = driver()
-    d.press('preset3').wait(449)
-    expect(d.state.displayedBank).toBe(0)
+    d.press('preset1').wait(449)
+    expect(d.flush()).toEqual([])
     d.wait(1)
-    expect(d.state.displayedBank).toBe(1)
-    d.release('preset3')
-    expect(d.flush()).toEqual([])
-    expect(d.state.loadedPreset).toBe(0)
-  })
-
-  it('holding P1 goes to the previous bank', () => {
-    const d = driver()
-    d.hold('preset3').hold('preset3').hold('preset1')
-    expect(d.state.displayedBank).toBe(1)
+    expect(d.flush()).toEqual([load(4)])
+    expect(d.state.loadedPreset).toBe(4)
+    d.wait(1000).release('preset1')
     expect(d.flush()).toEqual([])
   })
 
-  it('holding P2 does nothing and does not load on release', () => {
+  it('holding again goes back to bank A', () => {
     const d = driver()
-    d.hold('preset2')
-    expect(d.flush()).toEqual([])
-    expect(d.state.displayedBank).toBe(0)
-    expect(d.state.loadedPreset).toBe(0)
+    d.hold('preset1').hold('preset1')
+    expect(d.flush()).toEqual([load(4), load(0)])
+  })
+
+  it('each button toggles between its own address in A and B', () => {
+    const d = driver()
+    d.hold('preset2').hold('preset2').hold('preset3').hold('preset4')
+    // P06, P02, P07 (from A), P04 (from B)
+    expect(d.flush()).toEqual([load(5), load(1), load(6), load(3)])
   })
 
   it('fires once per hold (no auto-repeat)', () => {
     const d = driver()
-    d.hold('preset3', 3000)
-    expect(d.state.displayedBank).toBe(1)
+    d.hold('preset1', 3000)
+    expect(d.flush()).toEqual([load(4)])
   })
 
-  it('wraps B01 <-> B17', () => {
+  it('holding clears the scene', () => {
     const d = driver()
-    d.hold('preset1')
-    expect(d.state.displayedBank).toBe(16)
-    d.hold('preset3')
-    expect(d.state.displayedBank).toBe(0)
+    d.tapButton('scene2').hold('preset1')
+    expect(d.state.activeScene).toBeNull()
   })
 
   it('detects the hold on release even without a tick in between', () => {
-    let r = step(initialState(), { type: 'press', id: 'preset3', nowMs: 0 })
-    r = step(r.state, { type: 'release', id: 'preset3', nowMs: 600 })
-    expect(r.out).toEqual([])
-    expect(r.state.displayedBank).toBe(1)
-  })
-})
-
-describe('stomps', () => {
-  it('toggles on press and always sends 127', () => {
-    const d = driver()
-    d.press('stomp1')
-    expect(d.flush()).toEqual([{ cc: STOMP_CC[0], value: 127 }])
-    expect(d.state.stomps).toEqual([true, false])
-    d.release('stomp1').press('stomp1')
-    expect(d.flush()).toEqual([{ cc: STOMP_CC[0], value: 127 }])
-    expect(d.state.stomps).toEqual([false, false])
-    d.release('stomp1').tapButton('stomp2')
-    expect(d.flush()).toEqual([{ cc: STOMP_CC[1], value: 127 }])
-    expect(d.state.stomps).toEqual([false, true])
+    const r1 = step(initialState(), { type: 'press', id: 'preset3', nowMs: 0 })
+    const r2 = step(r1.state, { type: 'release', id: 'preset3', nowMs: 600 })
+    expect(r2.out).toEqual([load(6)])
   })
 })
 
@@ -146,6 +116,26 @@ describe('scenes', () => {
   })
 })
 
+describe('freeze', () => {
+  it('each press toggles freeze on and off', () => {
+    const d = driver()
+    d.press('freeze')
+    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: MIDI_ON }])
+    expect(d.state.freeze).toBe(true)
+    d.wait(2000).release('freeze')
+    expect(d.flush()).toEqual([])
+    d.press('freeze')
+    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: MIDI_OFF }])
+    expect(d.state.freeze).toBe(false)
+  })
+
+  it('survives a preset change', () => {
+    const d = driver()
+    d.tapButton('freeze').tapButton('preset2').hold('preset3')
+    expect(d.state.freeze).toBe(true)
+  })
+})
+
 describe('tap tempo', () => {
   it('sends CC 26 = 127 on every press', () => {
     const d = driver()
@@ -153,6 +143,13 @@ describe('tap tempo', () => {
     expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
     d.release('tap')
     expect(d.flush()).toEqual([])
+  })
+
+  it('holding tap does nothing else', () => {
+    const d = driver()
+    d.hold('tap', 3000)
+    expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
+    expect(d.state.freeze).toBe(false)
   })
 
   it('averages the intervals of the last 4 taps', () => {
@@ -194,28 +191,5 @@ describe('tap tempo', () => {
     const d = driver()
     d.at(1234).press('tap')
     expect(d.state.beatAnchorMs).toBe(1234)
-  })
-})
-
-describe('freeze', () => {
-  it('holding Tap turns freeze on at 450 ms and off on release', () => {
-    const d = driver()
-    d.at(1000).press('tap')
-    expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
-    d.wait(449)
-    expect(d.flush()).toEqual([])
-    d.wait(1)
-    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: 127 }])
-    expect(d.state.freeze).toBe(true)
-    d.wait(2000).release('tap')
-    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: 0 }])
-    expect(d.state.freeze).toBe(false)
-  })
-
-  it('a short tap does not freeze', () => {
-    const d = driver()
-    d.tapButton('tap', 449)
-    expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
-    expect(d.state.freeze).toBe(false)
   })
 })

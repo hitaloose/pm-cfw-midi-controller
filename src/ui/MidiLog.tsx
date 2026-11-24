@@ -1,4 +1,4 @@
-import { FREEZE_CC, PRESET_INDEX_OFFSET, PRESET_LOAD_CC, SCENE_CC, SCENE_OFF, STOMP_CC, TAP_CC, type CcMessage } from '../core/midiMap'
+import { FREEZE_CC, PRESET_INDEX_OFFSET, PRESET_LOAD_CC, SCENE_CC, SCENE_OFF, TAP_CC, type CcMessage } from '../core/midiMap'
 
 export interface LogEntry {
   seq: number
@@ -11,8 +11,6 @@ export interface LogEntry {
 
 export function describeCc({ cc, value }: CcMessage): string {
   if (cc === PRESET_LOAD_CC) return `Load P${String(value - PRESET_INDEX_OFFSET + 1).padStart(2, '0')}`
-  if (cc === STOMP_CC[0]) return 'Stomp FS1'
-  if (cc === STOMP_CC[1]) return 'Stomp FS2'
   if (cc === SCENE_CC[0]) return 'Scene 1'
   if (cc === SCENE_CC[1]) return 'Scene 2'
   if (SCENE_OFF && cc === SCENE_OFF.cc) return 'Scene off'

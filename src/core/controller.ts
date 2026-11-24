@@ -2,7 +2,7 @@
 // Events in (press / release / tick with nowMs), new state + CC messages out.
 // No React, no MIDI, no clock: this is the part that gets ported to the firmware.
 
-import { BANK_COUNT, DEFAULT_BPM, HOLD_MS, PRESET_COUNT, SLOTS_PER_BANK } from './config'
+import { BANK_COUNT, DEFAULT_BPM, HOLD_MS, SLOTS_PER_BANK } from './config'
 import {
   FREEZE_CC,
   MIDI_OFF,
@@ -11,12 +11,19 @@ import {
   PRESET_LOAD_CC,
   SCENE_CC,
   SCENE_OFF,
-  STOMP_CC,
   TAP_CC,
   type CcMessage,
 } from './midiMap'
 import { addTap, bpmFromTaps } from './tapTempo'
-import { BUTTON_IDS, type ButtonId, type ButtonState, type ControllerEvent, type ControllerState, type StepResult } from './types'
+import {
+  BUTTON_IDS,
+  type ButtonId,
+  type ButtonState,
+  type ControllerEvent,
+  type ControllerState,
+  type PresetButtonId,
+  type StepResult,
+} from './types'
 
 const UP: ButtonState = { pressedAtMs: null, holdFired: false }
 
@@ -25,10 +32,8 @@ export function initialState(): ControllerState {
   for (const id of BUTTON_IDS) buttons[id] = UP
   return {
     nowMs: 0,
-    displayedBank: 0,
     loadedPreset: 0,
     activeScene: null,
-    stomps: [false, false],
     freeze: false,
     bpm: DEFAULT_BPM,
     beatAnchorMs: 0,
@@ -57,6 +62,16 @@ export function step(state: ControllerState, event: ControllerEvent): StepResult
   return { state: s, out }
 }
 
+/** Bank (0 = A, 1 = B) of the loaded preset. */
+export function loadedBank(s: ControllerState): number {
+  return Math.floor(s.loadedPreset / SLOTS_PER_BANK)
+}
+
+/** Button slot (0–3) of the loaded preset, the same in both banks. */
+export function loadedSlot(s: ControllerState): number {
+  return s.loadedPreset % SLOTS_PER_BANK
+}
+
 // ---------------------------------------------------------------- press
 
 function onPress(s: ControllerState, id: ButtonId, out: CcMessage[]): ControllerState {
@@ -64,14 +79,6 @@ function onPress(s: ControllerState, id: ButtonId, out: CcMessage[]): Controller
   s = setButton(s, id, { pressedAtMs: s.nowMs, holdFired: false })
 
   switch (id) {
-    case 'stomp1':
-    case 'stomp2': {
-      const i = id === 'stomp1' ? 0 : 1
-      const stomps: [boolean, boolean] = [s.stomps[0], s.stomps[1]]
-      stomps[i] = !stomps[i]
-      out.push({ cc: STOMP_CC[i], value: MIDI_ON })
-      return { ...s, stomps }
-    }
     case 'scene1':
     case 'scene2': {
       const i = id === 'scene1' ? 0 : 1
@@ -82,14 +89,17 @@ function onPress(s: ControllerState, id: ButtonId, out: CcMessage[]): Controller
       out.push({ cc: SCENE_CC[i], value: MIDI_ON })
       return { ...s, activeScene: i }
     }
+    case 'freeze': {
+      const freeze = !s.freeze
+      out.push({ cc: FREEZE_CC, value: freeze ? MIDI_ON : MIDI_OFF })
+      return { ...s, freeze }
+    }
     case 'tap': {
       out.push({ cc: TAP_CC, value: MIDI_ON })
       const tapTimes = addTap(s.tapTimes, s.nowMs)
       return { ...s, tapTimes, bpm: bpmFromTaps(tapTimes) ?? s.bpm, beatAnchorMs: s.nowMs }
     }
-    case 'preset1':
-    case 'preset2':
-    case 'preset3':
+    default:
       return s // presets act on release (they also have a long press)
   }
 }
@@ -101,18 +111,8 @@ function onRelease(s: ControllerState, id: ButtonId, out: CcMessage[]): Controll
   if (button.pressedAtMs === null) return s
   s = setButton(s, id, UP)
 
-  switch (id) {
-    case 'preset1':
-    case 'preset2':
-    case 'preset3':
-      return button.holdFired ? s : loadSlot(s, presetSlot(id), out)
-    case 'tap':
-      if (!s.freeze) return s
-      out.push({ cc: FREEZE_CC, value: MIDI_OFF })
-      return { ...s, freeze: false }
-    default:
-      return s
-  }
+  if (isPreset(id) && !button.holdFired) return loadPreset(s, loadedBank(s), presetSlot(id), out)
+  return s
 }
 
 // ----------------------------------------------------------------- hold
@@ -122,40 +122,26 @@ function fireHolds(s: ControllerState, out: CcMessage[]): ControllerState {
     const b = s.buttons[id]
     if (b.pressedAtMs === null || b.holdFired || s.nowMs - b.pressedAtMs < HOLD_MS) continue
     s = setButton(s, id, { ...b, holdFired: true })
-    s = onHold(s, id, out)
+    // Holding a preset loads that button's preset in the other bank.
+    if (isPreset(id)) s = loadPreset(s, (loadedBank(s) + 1) % BANK_COUNT, presetSlot(id), out)
   }
   return s
 }
 
-function onHold(s: ControllerState, id: ButtonId, out: CcMessage[]): ControllerState {
-  switch (id) {
-    case 'preset1':
-      return { ...s, displayedBank: wrapBank(s.displayedBank - 1) }
-    case 'preset3':
-      return { ...s, displayedBank: wrapBank(s.displayedBank + 1) }
-    case 'tap':
-      out.push({ cc: FREEZE_CC, value: MIDI_ON })
-      return { ...s, freeze: true }
-    default:
-      return s
-  }
-}
-
 // -------------------------------------------------------------- helpers
 
-function loadSlot(s: ControllerState, slot: number, out: CcMessage[]): ControllerState {
-  const preset = s.displayedBank * SLOTS_PER_BANK + slot
-  if (preset >= PRESET_COUNT) return s // e.g. slot 3 of B17
+function loadPreset(s: ControllerState, bank: number, slot: number, out: CcMessage[]): ControllerState {
+  const preset = bank * SLOTS_PER_BANK + slot
   out.push({ cc: PRESET_LOAD_CC, value: preset + PRESET_INDEX_OFFSET })
-  return { ...s, loadedPreset: preset, activeScene: null, stomps: [false, false] }
+  return { ...s, loadedPreset: preset, activeScene: null }
 }
 
-function presetSlot(id: 'preset1' | 'preset2' | 'preset3'): number {
-  return id === 'preset1' ? 0 : id === 'preset2' ? 1 : 2
+function isPreset(id: ButtonId): id is PresetButtonId {
+  return id === 'preset1' || id === 'preset2' || id === 'preset3' || id === 'preset4'
 }
 
-function wrapBank(bank: number): number {
-  return (bank + BANK_COUNT) % BANK_COUNT
+function presetSlot(id: PresetButtonId): number {
+  return Number(id.slice(-1)) - 1
 }
 
 function setButton(s: ControllerState, id: ButtonId, b: ButtonState): ControllerState {

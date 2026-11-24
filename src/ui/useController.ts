@@ -5,9 +5,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { initialState, step } from '../core/controller'
 import type { CcMessage } from '../core/midiMap'
 import type { ButtonId, ControllerEvent, ControllerState } from '../core/types'
-import { getLeds, getScreen } from '../core/view'
+import { getDisplay } from '../core/display'
+import { getLeds } from '../core/view'
 
-const viewKey = (s: ControllerState) => JSON.stringify([getLeds(s), getScreen(s), s.buttons])
+const viewKey = (s: ControllerState) => JSON.stringify([getLeds(s), getDisplay(s), s.buttons])
 
 export function useController(onMidi: (msgs: CcMessage[]) => void) {
   const stateRef = useRef<ControllerState>(initialState())

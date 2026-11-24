@@ -2,9 +2,12 @@
 
 export const HOLD_MS = 450
 
-export const PRESET_COUNT = 50
-export const SLOTS_PER_BANK = 3
-export const BANK_COUNT = Math.ceil(PRESET_COUNT / SLOTS_PER_BANK) // 17
+/** Two banks of 4: bank A = P01–P04, bank B = P05–P08. */
+export const SLOTS_PER_BANK = 4
+export const BANK_COUNT = 2
+
+/** Bank B: the loaded preset's LED blinks with this period (half on, half off). */
+export const BANK_B_BLINK_MS = 500
 
 export const DEFAULT_BPM = 120
 export const MIN_BPM = 40
