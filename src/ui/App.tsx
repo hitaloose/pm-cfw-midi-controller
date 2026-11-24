@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FREEZE_CC, SCENE_CC, STOMP_CC, TAP_CC, type CcMessage } from '../core/midiMap'
+import { SCENE_CC, STOMP_CC, type CcMessage } from '../core/midiMap'
 import { BUTTON_IDS, type ButtonId } from '../core/types'
 import { getLeds, getScreen } from '../core/view'
 import { useBluetoothMidi, type BleStatus } from '../midi/useBluetoothMidi'
@@ -8,6 +8,7 @@ import { Footswitch } from './Footswitch'
 import { MidiLog, type LogEntry } from './MidiLog'
 import { Screen, type PanelColor } from './Screen'
 import { useController } from './useController'
+import { useWakeLock } from './useWakeLock'
 
 const GREEN = '#7EE0A8'
 const BLUE = '#8EC5FF'
@@ -22,7 +23,7 @@ const BUTTONS: Record<ButtonId, { label: string; sub: string; key: string; color
   preset1: { label: 'Preset 1', sub: 'hold: bank −', key: 'Q', color: AMBER },
   preset2: { label: 'Preset 2', sub: '', key: 'W', color: AMBER },
   preset3: { label: 'Preset 3', sub: 'hold: bank +', key: 'E', color: AMBER },
-  tap: { label: 'Tap', sub: `CC ${TAP_CC} · hold: freeze (CC ${FREEZE_CC})`, key: 'R', color: AMBER },
+  tap: { label: 'Tap', sub: 'hold: freeze', key: 'R', color: AMBER },
 }
 
 const KEY_TO_BUTTON = new Map<string, ButtonId>(BUTTON_IDS.map((id) => [BUTTONS[id].key.toLowerCase(), id]))
@@ -30,6 +31,7 @@ const LOG_SIZE = 60
 const PANEL_KEY = 'pm-midi.panel'
 
 export function App() {
+  useWakeLock()
   const midi = useMidi()
   const ble = useBluetoothMidi()
   const [log, setLog] = useState<LogEntry[]>([])

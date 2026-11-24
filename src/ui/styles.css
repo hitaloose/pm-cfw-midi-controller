@@ -13,16 +13,24 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-height: 100vh; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  /* tablet: no double-tap zoom, no long-press callout on the footswitches */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
 kbd, .log, .status, select { font-family: 'JetBrains Mono', ui-monospace, monospace; }
 
 .app {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
+  gap: 16px;
   justify-content: center;
-  align-items: flex-start;
-  padding: 32px 24px;
+  align-items: center;
+  padding: 16px;
+  min-height: 100dvh;
 }
 
 /* ---------- controller unit ---------- */
@@ -30,17 +38,17 @@ kbd, .log, .status, select { font-family: 'JetBrains Mono', ui-monospace, monosp
   background: var(--unit);
   border: 1px solid var(--line);
   border-radius: 22px;
-  padding: 28px 32px 32px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 28px;
+  gap: 20px;
   user-select: none;
   -webkit-user-select: none;
 }
 .bezel {
   background: #1b3d7a;
-  padding: 14px 18px;
+  padding: 10px 14px;
   border-radius: 4px;
 }
 .oled {
@@ -48,15 +56,18 @@ kbd, .log, .status, select { font-family: 'JetBrains Mono', ui-monospace, monosp
   image-rendering: pixelated;
   background: #000;
   outline: 6px solid #050505;
+  /* keeps 2:1 and takes the height left over by the footswitches */
+  height: clamp(110px, calc(100dvh - 430px), 256px);
+  aspect-ratio: 2 / 1;
 }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 140px);
-  row-gap: 22px;
+  grid-template-columns: repeat(4, minmax(104px, 132px));
+  row-gap: 16px;
   column-gap: 12px;
 }
-.fs { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.fs { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .led {
   width: 12px;
   height: 12px;
@@ -80,12 +91,11 @@ kbd, .log, .status, select { font-family: 'JetBrains Mono', ui-monospace, monosp
 .fs-sub {
   font-size: 12px;
   color: var(--muted);
-  min-height: 32px;
+  min-height: 16px;
   text-align: center;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 kbd {
   font-size: 11px;
@@ -97,7 +107,8 @@ kbd {
 
 /* ---------- side panel ---------- */
 .side {
-  width: 360px;
+  width: 320px;
+  align-self: stretch;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -131,6 +142,7 @@ select {
   min-height: 36px;
 }
 
+.log { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .log header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .link {
   background: none;
@@ -146,7 +158,8 @@ select {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 420px;
+  flex: 1;
+  min-height: 120px;
   overflow-y: auto;
   font-size: 12px;
 }
@@ -190,3 +203,16 @@ select {
 .ble-on .dot { width: 8px; height: 8px; border-radius: 50%; background: #7ee0a8; flex: none; }
 .ble-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ble-on .link { margin-left: auto; }
+
+
+/* Touch screens: no keyboard hints. */
+@media (hover: none) {
+  kbd { display: none; }
+}
+
+/* Narrow / portrait: stack and let the page scroll. */
+@media (max-width: 900px) {
+  .side { width: min(100%, 600px); align-self: center; }
+  .log ol { flex: none; max-height: 320px; }
+  .oled { height: clamp(110px, 30vw, 256px); }
+}

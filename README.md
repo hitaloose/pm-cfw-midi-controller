@@ -49,6 +49,13 @@ The CFW has no MIDI out yet, so the controller can't read the pedal's state: if 
 
 Without any output, messages still show up in the **MIDI out** log, so you can try it without the pedal.
 
+## Install on a tablet
+
+It's a PWA: install it once and it opens full screen, works offline (after the first visit) and keeps the screen on while open.
+
+- **Android** (Chrome): open the link → ⋮ menu → **Add to home screen** / **Install app**. Web MIDI and Web Bluetooth both work, so you can connect to the pedal by Bluetooth or USB-C (OTG).
+- **iPad / iPhone**: you can add it to the home screen from Safari's Share menu, but **it can't send MIDI**: iOS browsers have no Web MIDI or Web Bluetooth.
+
 ## Running locally
 
 ```bash

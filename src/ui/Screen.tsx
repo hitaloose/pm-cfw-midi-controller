@@ -51,7 +51,7 @@ function rasterize(ctx: CanvasRenderingContext2D, m: ScreenModel): boolean[] {
   return mask
 }
 
-export function Screen({ model, panel, scale = 4 }: { model: ScreenModel; panel: PanelColor; scale?: number }) {
+export function Screen({ model, panel }: { model: ScreenModel; panel: PanelColor }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const scratch = useRef<CanvasRenderingContext2D | null>(null)
   const [fontReady, setFontReady] = useState(false)
@@ -100,7 +100,6 @@ export function Screen({ model, panel, scale = 4 }: { model: ScreenModel; panel:
       className="oled"
       width={W}
       height={H}
-      style={{ width: W * scale, height: H * scale }}
       role="img"
       aria-label={`${model.bpmText}${model.frzActive ? ', freeze on' : ''}. Bank ${model.bankText}${model.bankPending ? ' (pending)' : ''}, preset ${model.presetText}`}
     />
