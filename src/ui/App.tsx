@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FREEZE_CC, SCENE_CC, TAP_CC, type CcMessage } from '../core/midiMap'
+import { SCENE_CC, STOMP_FS1_CC, TAP_CC, type CcMessage } from '../core/midiMap'
 import { BUTTON_IDS, type ButtonId } from '../core/types'
 import { getDisplay } from '../core/display'
 import { getLeds } from '../core/view'
@@ -23,7 +23,7 @@ const BUTTONS: Record<ButtonId, { label: string; sub: string; key: string; color
   preset4: { label: 'P04 / P08', sub: 'hold: other bank', key: '4', color: AMBER },
   scene1: { label: 'Scene 1', sub: `CC ${SCENE_CC[0]}`, key: 'Q', color: BLUE },
   scene2: { label: 'Scene 2', sub: `CC ${SCENE_CC[1]}`, key: 'W', color: BLUE },
-  freeze: { label: 'Freeze', sub: `CC ${FREEZE_CC}`, key: 'E', color: GREEN },
+  stomp1: { label: 'Stomp FS1', sub: `CC ${STOMP_FS1_CC} · hold: freeze`, key: 'E', color: GREEN },
   tap: { label: 'Tap', sub: `CC ${TAP_CC}`, key: 'R', color: AMBER },
 }
 
@@ -100,7 +100,7 @@ export function App() {
         {sideOpen ? 'Hide panels' : 'Show panels'}
       </button>
       <section className="unit" aria-label="Controller">
-        <SevenSegment segments={getDisplay(state)} label={`${state.bpm} BPM`} />
+        <SevenSegment segments={getDisplay(state)} label={`${state.bpm} BPM${state.freeze ? ', freeze on' : ''}`} />
         <div className="grid">
           {BUTTON_IDS.map((id) => (
             <Footswitch

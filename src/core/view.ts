@@ -27,7 +27,7 @@ export function getLeds(s: ControllerState): Leds {
     preset4: lit === 3,
     scene1: s.activeScene === 0,
     scene2: s.activeScene === 1,
-    freeze: s.freeze,
+    stomp1: s.stomp1,
     tap: isTapLedOn(s),
   }
 }

@@ -11,18 +11,18 @@ This repo is **phase 1**: a web simulation of the controller that sends real MID
 | | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
 | **Top** | Preset 1 | Preset 2 | Preset 3 | Preset 4 |
-| **Bottom** | Scene 1 | Scene 2 | Freeze | Tap |
+| **Bottom** | Scene 1 | Scene 2 | Stomp FS1 | Tap |
 
 | Button | Press | Hold (≥ 450 ms) |
 |---|---|---|
 | Preset 1–4 | loads that button's preset in the current bank (on release) | loads that button's preset in the other bank |
 | Scene 1 / 2 | activates the scene; pressing the active scene turns it off (back to the base preset) | — |
-| Freeze | toggles freeze on / off | — |
+| Stomp FS1 | toggles the pedal's STOMP FS1 (on release) | freeze while held (momentary) |
 | Tap | tap tempo | — |
 
 - **Two banks of 4**: bank A = P01–P04, bank B = P05–P08. Button N is P0N in A and P0(N+4) in B. Holding a preset button jumps to the other bank: on P01, holding 2 loads P06; holding 2 again goes back to P02.
-- **LEDs**: the loaded preset's LED is solid in bank A and blinks in bank B. Scene and Freeze LEDs are on while active.
-- **Display**: just the BPM. Everything else is shown by the LEDs.
+- **LEDs**: the loaded preset's LED is solid in bank A and blinks in bank B. Scene and Stomp FS1 LEDs are on while active. Stomp FS1 resets to off when a preset loads (the pedal sends no feedback).
+- **Display**: the BPM, with an `F` in the first digit while freeze is on. Everything else is shown by the LEDs.
 - **Tap LED** flashes for 60 ms on every beat, realigned on each tap. BPM is the average of the last 4 taps (taps more than 2 s apart start over), 40–260 BPM.
 - **Keyboard**: `1 2 3 4` for the top row, `Q W E R` for the bottom row. Holding a key is a long press.
 
@@ -36,7 +36,8 @@ Pedal settings: MIDI map **Stock**, MIDI channel **ALL** (or the one you pick in
 | Scene 1 / 2 | CC 82 / 83 = 127 |
 | Scene off | CC 85 = 127 |
 | Tap | CC 26 = 127 |
-| Freeze on / off | CC 114 = 127 / 0 |
+| Freeze on / off (hold Stomp FS1) | CC 114 = 127 / 0 |
+| Stomp FS1 | CC 80 = 127 (toggles) |
 
 Some of these are still being confirmed on the pedal. All of them live in [`src/core/midiMap.ts`](src/core/midiMap.ts).
 

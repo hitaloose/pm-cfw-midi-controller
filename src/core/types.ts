@@ -7,7 +7,7 @@ export type ButtonId =
   | 'preset4'
   | 'scene1'
   | 'scene2'
-  | 'freeze'
+  | 'stomp1'
   | 'tap'
 
 export type PresetButtonId = 'preset1' | 'preset2' | 'preset3' | 'preset4'
@@ -20,7 +20,7 @@ export const BUTTON_IDS: readonly ButtonId[] = [
   'preset4',
   'scene1',
   'scene2',
-  'freeze',
+  'stomp1',
   'tap',
 ]
 
@@ -42,7 +42,10 @@ export interface ControllerState {
   loadedPreset: number
   /** 0 = SC1, 1 = SC2, null = no scene. */
   activeScene: 0 | 1 | null
+  /** On while Stomp FS1 is held past HOLD_MS (momentary). */
   freeze: boolean
+  /** Local view of the pedal's STOMP FS1 toggle (no feedback from the pedal). */
+  stomp1: boolean
   bpm: number
   /** Time of the beat the tap LED is aligned to. */
   beatAnchorMs: number

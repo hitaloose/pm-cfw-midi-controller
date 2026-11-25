@@ -11,6 +11,7 @@ import {
   PRESET_LOAD_CC,
   SCENE_CC,
   SCENE_OFF,
+  STOMP_FS1_CC,
   TAP_CC,
   type CcMessage,
 } from './midiMap'
@@ -35,6 +36,7 @@ export function initialState(): ControllerState {
     loadedPreset: 0,
     activeScene: null,
     freeze: false,
+    stomp1: false,
     bpm: DEFAULT_BPM,
     beatAnchorMs: 0,
     tapTimes: [],
@@ -89,18 +91,13 @@ function onPress(s: ControllerState, id: ButtonId, out: CcMessage[]): Controller
       out.push({ cc: SCENE_CC[i], value: MIDI_ON })
       return { ...s, activeScene: i }
     }
-    case 'freeze': {
-      const freeze = !s.freeze
-      out.push({ cc: FREEZE_CC, value: freeze ? MIDI_ON : MIDI_OFF })
-      return { ...s, freeze }
-    }
     case 'tap': {
       out.push({ cc: TAP_CC, value: MIDI_ON })
       const tapTimes = addTap(s.tapTimes, s.nowMs)
       return { ...s, tapTimes, bpm: bpmFromTaps(tapTimes) ?? s.bpm, beatAnchorMs: s.nowMs }
     }
     default:
-      return s // presets act on release (they also have a long press)
+      return s // presets and stomp act on release (they also have a long press)
   }
 }
 
@@ -112,6 +109,14 @@ function onRelease(s: ControllerState, id: ButtonId, out: CcMessage[]): Controll
   s = setButton(s, id, UP)
 
   if (isPreset(id) && !button.holdFired) return loadPreset(s, loadedBank(s), presetSlot(id), out)
+  if (id === 'stomp1') {
+    if (!button.holdFired) {
+      out.push({ cc: STOMP_FS1_CC, value: MIDI_ON })
+      return { ...s, stomp1: !s.stomp1 }
+    }
+    out.push({ cc: FREEZE_CC, value: MIDI_OFF })
+    return { ...s, freeze: false }
+  }
   return s
 }
 
@@ -124,6 +129,11 @@ function fireHolds(s: ControllerState, out: CcMessage[]): ControllerState {
     s = setButton(s, id, { ...b, holdFired: true })
     // Holding a preset loads that button's preset in the other bank.
     if (isPreset(id)) s = loadPreset(s, (loadedBank(s) + 1) % BANK_COUNT, presetSlot(id), out)
+    // Holding Stomp FS1 freezes until it is released.
+    if (id === 'stomp1') {
+      out.push({ cc: FREEZE_CC, value: MIDI_ON })
+      s = { ...s, freeze: true }
+    }
   }
   return s
 }
@@ -133,7 +143,8 @@ function fireHolds(s: ControllerState, out: CcMessage[]): ControllerState {
 function loadPreset(s: ControllerState, bank: number, slot: number, out: CcMessage[]): ControllerState {
   const preset = bank * SLOTS_PER_BANK + slot
   out.push({ cc: PRESET_LOAD_CC, value: preset + PRESET_INDEX_OFFSET })
-  return { ...s, loadedPreset: preset, activeScene: null }
+  // The new preset brings its own STOMP state; assume it starts off.
+  return { ...s, loadedPreset: preset, activeScene: null, stomp1: false }
 }
 
 function isPreset(id: ButtonId): id is PresetButtonId {

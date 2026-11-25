@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { initialState, step } from './controller'
-import { FREEZE_CC, MIDI_OFF, MIDI_ON, PRESET_INDEX_OFFSET, PRESET_LOAD_CC, SCENE_CC, SCENE_OFF, TAP_CC } from './midiMap'
+import {
+  FREEZE_CC,
+  MIDI_OFF,
+  MIDI_ON,
+  PRESET_INDEX_OFFSET,
+  PRESET_LOAD_CC,
+  SCENE_CC,
+  SCENE_OFF,
+  STOMP_FS1_CC,
+  TAP_CC,
+} from './midiMap'
 import { driver } from './testDriver'
 
 const load = (index: number) => ({ cc: PRESET_LOAD_CC, value: index + PRESET_INDEX_OFFSET })
@@ -11,6 +21,7 @@ describe('initial state', () => {
     expect(s.loadedPreset).toBe(0)
     expect(s.activeScene).toBeNull()
     expect(s.freeze).toBe(false)
+    expect(s.stomp1).toBe(false)
     expect(s.bpm).toBe(120)
   })
 })
@@ -116,23 +127,59 @@ describe('scenes', () => {
   })
 })
 
-describe('freeze', () => {
-  it('each press toggles freeze on and off', () => {
+describe('stomp FS1 (tap: toggle, hold: freeze)', () => {
+  const stomp = { cc: STOMP_FS1_CC, value: MIDI_ON }
+  const on = { cc: FREEZE_CC, value: MIDI_ON }
+  const off = { cc: FREEZE_CC, value: MIDI_OFF }
+
+  it('a tap sends CC 80 = 127 on release and toggles its state', () => {
     const d = driver()
-    d.press('freeze')
-    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: MIDI_ON }])
-    expect(d.state.freeze).toBe(true)
-    d.wait(2000).release('freeze')
+    d.press('stomp1')
     expect(d.flush()).toEqual([])
-    d.press('freeze')
-    expect(d.flush()).toEqual([{ cc: FREEZE_CC, value: MIDI_OFF }])
-    expect(d.state.freeze).toBe(false)
+    d.wait(50).release('stomp1')
+    expect(d.flush()).toEqual([stomp])
+    expect(d.state.stomp1).toBe(true)
+    d.tapButton('stomp1')
+    expect(d.flush()).toEqual([stomp])
+    expect(d.state.stomp1).toBe(false)
   })
 
-  it('survives a preset change', () => {
+  it('loading a preset resets it to off', () => {
     const d = driver()
-    d.tapButton('freeze').tapButton('preset2').hold('preset3')
+    d.tapButton('stomp1').tapButton('preset2')
+    expect(d.state.stomp1).toBe(false)
+    d.tapButton('stomp1').hold('preset3')
+    expect(d.state.stomp1).toBe(false)
+  })
+
+  it('holding freezes at 450 ms and unfreezes on release, without toggling the stomp', () => {
+    const d = driver()
+    d.press('stomp1').wait(449)
+    expect(d.flush()).toEqual([])
+    d.wait(1)
+    expect(d.flush()).toEqual([on])
     expect(d.state.freeze).toBe(true)
+    d.wait(2000)
+    expect(d.flush()).toEqual([])
+    d.release('stomp1')
+    expect(d.flush()).toEqual([off])
+    expect(d.state.freeze).toBe(false)
+    expect(d.state.stomp1).toBe(false)
+  })
+
+  it('detects the hold on release even without a tick in between', () => {
+    const r1 = step(initialState(), { type: 'press', id: 'stomp1', nowMs: 0 })
+    const r2 = step(r1.state, { type: 'release', id: 'stomp1', nowMs: 600 })
+    expect(r2.out).toEqual([on, off])
+    expect(r2.state.freeze).toBe(false)
+  })
+
+  it('freeze stays on through a preset change while held', () => {
+    const d = driver()
+    d.press('stomp1').wait(500).tapButton('preset2')
+    expect(d.state.freeze).toBe(true)
+    d.release('stomp1')
+    expect(d.state.freeze).toBe(false)
   })
 })
 
@@ -143,13 +190,6 @@ describe('tap tempo', () => {
     expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
     d.release('tap')
     expect(d.flush()).toEqual([])
-  })
-
-  it('holding tap does nothing else', () => {
-    const d = driver()
-    d.hold('tap', 3000)
-    expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
-    expect(d.state.freeze).toBe(false)
   })
 
   it('averages the intervals of the last 4 taps', () => {
@@ -185,6 +225,13 @@ describe('tap tempo', () => {
     slow.at(1000).tapButton('tap')
     slow.at(2900).tapButton('tap')
     expect(slow.state.bpm).toBe(40)
+  })
+
+  it('holding tap does nothing else', () => {
+    const d = driver()
+    d.hold('tap', 3000)
+    expect(d.flush()).toEqual([{ cc: TAP_CC, value: 127 }])
+    expect(d.state.freeze).toBe(false)
   })
 
   it('realigns the beat phase on every tap', () => {

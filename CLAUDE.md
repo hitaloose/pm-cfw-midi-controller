@@ -34,13 +34,13 @@ A lógica do controlador deve ser escrita de forma que dê para portar para o fi
 | | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
 | **Cima** | Preset 1 | Preset 2 | Preset 3 | Preset 4 |
-| **Baixo** | Scene 1 | Scene 2 | Freeze | Tap |
+| **Baixo** | Scene 1 | Scene 2 | Stomp FS1 | Tap |
 
 | Botão | Toque | Segurar (≥ 450 ms) | Dispara em |
 |---|---|---|---|
 | Preset 1–4 | carrega o preset do botão no banco atual | carrega o preset do botão no **outro** banco | toque: release; segurar: ao completar 450 ms |
 | Scene 1 / 2 | ativa a cena; se ela já está ativa, **desativa** | — | press |
-| Freeze | liga/desliga (latch) | — | press |
+| Stomp FS1 | alterna o STOMP FS1 da pedaleira | freeze enquanto segurar (momentâneo) | toque: release; freeze: liga ao completar 450 ms, desliga no release |
 | Tap | tap tempo | — | press |
 
 ## Regras de comportamento
@@ -72,17 +72,21 @@ A lógica do controlador deve ser escrita de forma que dê para portar para o fi
 - O relógio de tempos fica no core e avança via `tick(nowMs)`.
 - Segurar o Tap não faz nada além do tap.
 
-### Freeze
-- Botão próprio, latch: cada toque alterna. Liga envia CC 114 = 127, desliga envia CC 114 = 0.
-- LED do Freeze aceso = freeze ligado.
+### Freeze (segurar o Stomp FS1)
+- Momentâneo: segurar o Stomp FS1 por 450 ms liga (CC 114 = 127), soltar desliga (CC 114 = 0).
+- Indicado no display: `F` no primeiro dígito enquanto ligado. Não mexe no tap tempo nem no estado do stomp.
 - Trocar de preset não mexe no freeze.
 - Só tem efeito audível se o preset usar o reverb **Freeze** no bloco RVB.
 
+### Stomp FS1
+- Cada toque envia CC 80 = 127 no release (o botão tem toque longo). Na CFW, qualquer valor ≥ 64 alterna o grupo STOMP FS1 (é toggle, não on/off).
+- LED aceso = estado local ligado. Carregar um preset volta para desligado (suposição: sem feedback da pedaleira).
+
 ## Display (TM1637, 4 dígitos)
 
-- Mostra **só o BPM**, alinhado à direita e sem zeros à esquerda (` 120`, `  40`).
+- Mostra o BPM nos 3 últimos dígitos, alinhado à direita e sem zeros à esquerda (` 120`, `  40`). O primeiro dígito mostra `F` (0x71) enquanto o freeze está ligado (`F120`).
 - O modelo é `getDisplay(state)` em `core/display.ts`: os 4 bytes de segmentos que o chip recebe (bit 0 = a … bit 6 = g, bit 7 = ponto/dois-pontos). No firmware vão direto para `TM1637Display::setSegments()`.
-- Banco, preset, cena e freeze aparecem só pelos LEDs.
+- Banco, preset, cena e stomp aparecem só pelos LEDs.
 
 ## Mapa MIDI (CFW, mapa **Stock**)
 
@@ -92,7 +96,8 @@ A lógica do controlador deve ser escrita de forma que dê para portar para o fi
 | Scene 1 / 2 | CC 82 / 83 (a confirmar) |
 | Desativar cena | a confirmar (candidato: CC 85) |
 | Tap | CC 26 = 127 |
-| Freeze on / off | CC 114 = 127 / 0 |
+| Freeze on / off (segurar Stomp FS1) | CC 114 = 127 / 0 |
+| STOMP FS1 | CC 80 = 127 (toggle, ≥ 64) |
 | EXP A (futuro) | CC 16, 0–127 contínuo |
 
 Configuração na pedaleira: mapa **Stock**, MIDI CH (ALL ou o canal escolhido) e "same preset again" em **OFF**.
@@ -111,5 +116,5 @@ Não chute esses valores no código: deixe-os em um único arquivo de constantes
 ## Convenções
 
 - Código, nomes e textos da UI em inglês.
-- TDD no `core/`: cada regra acima deve ter teste (toque e hold dos presets, display do BPM, LED fixo/piscando por banco, cena toggle, fase do LED do tap, latch do freeze).
+- TDD no `core/`: cada regra acima deve ter teste (toque e hold dos presets, display do BPM, LED fixo/piscando por banco, cena toggle, fase do LED do tap, toggle do stomp, freeze momentâneo no hold do stomp).
 - Mockup de referência no Claude Design (do layout antigo, com tela e stomps): https://claude.ai/artifact/5b9qYrhwMJHGfdrTEn5jC5

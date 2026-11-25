@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { DIGIT_SEGMENTS, getDisplay, SEG_BLANK } from './display'
+import { DIGIT_SEGMENTS, getDisplay, SEG_BLANK, SEG_F } from './display'
 import { driver } from './testDriver'
 
 const [d0, d1, d2, , d4, , d6, , , d9] = DIGIT_SEGMENTS
@@ -26,5 +26,16 @@ describe('TM1637 display', () => {
     n.at(1000).tapButton('tap')
     n.at(1606).tapButton('tap') // 60000/606 = 99
     expect(getDisplay(n.state)).toEqual([SEG_BLANK, SEG_BLANK, d9, d9])
+  })
+
+  it('shows F in the first digit while freeze is on', () => {
+    expect(SEG_F).toBe(0x71) // a, e, f, g
+    const d = driver()
+    d.at(1000).tapButton('tap')
+    d.at(1250).tapButton('tap') // 240 BPM
+    d.press('stomp1').wait(500)
+    expect(getDisplay(d.state)).toEqual([SEG_F, d2, d4, d0])
+    d.release('stomp1')
+    expect(getDisplay(d.state)).toEqual([SEG_BLANK, d2, d4, d0])
   })
 })

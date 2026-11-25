@@ -31,8 +31,11 @@ export const SCENE_OFF: CcMessage | null = { cc: 85, value: MIDI_ON }
 /** Tap tempo, sent as 127 on every tap. */
 export const TAP_CC = 26
 
-/** Freeze: toggled by its own button, 127 = on, 0 = off. */
+/** Freeze: momentary on Stomp FS1 hold, 127 = on (hold start), 0 = off (release). */
 export const FREEZE_CC = 114
+
+/** STOMP FS1 (stomp mode footswitch 1): each value ≥ 64 toggles the group. */
+export const STOMP_FS1_CC = 80
 
 /** Expression pedal A (future), continuous 0–127. */
 export const EXP_A_CC = 16
